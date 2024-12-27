@@ -1,0 +1,605 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Fonte de dados para o banco de dados PostgreSQL, usando a URL especificada na variável de ambiente DATABASE_URL.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User_Admin {
+  id               Int           @id @default(autoincrement())
+  name             String // Nome do usuário.
+  email            String        @unique // Email do usuário, único.
+  active           Boolean       @default(true) // Indica se o usuário está ativo.
+  telefone         String?
+  isSuperAdmin     Boolean       @default(false) @map("is_super_admin") // Indica se o usuário é um super administrador.
+  password         String
+  lastActivity     DateTime?
+  sessionExpiresAt DateTime?
+  profileTypes     UserProfile[] // Relacionamento com os perfis do administrador.
+  createdAt        DateTime      @default(now()) // Data de criação do usuário.
+  updatedAt        DateTime      @updatedAt // Data de atualização do usuário.
+}
+
+// Modelo de permissões, que representa as permissões disponíveis no sistema.
+model Permissions {
+  id                 Int                 @id @default(autoincrement()) // ID da permissão, chave primária.
+  name               String              @unique // Nome da permissão, único.
+  description        String? // Descrição da permissão (opcional).
+  profilePermissions ProfilePermission[]  // Relação com as permissões de perfil.
+
+  // Mapeamento para o nome da tabela no banco de dados.
+  @@map("permissions")
+}
+
+// Modelo de tipos de perfil, que representa os tipos de perfil disponíveis no sistema.
+model ProfileType {
+  id            Int                 @id @default(autoincrement()) // ID do tipo de perfil, chave primária.
+  name          String              @unique // Nome do tipo de perfil, único.
+  description   String? // Descrição do tipo de perfil (opcional).
+  status        Boolean             @default(true)
+  usersProfiles UserProfile[] // Relação com os usuários associados a este tipo de perfil.
+  // Relação com as permissões associadas a este tipo de perfil.
+  permissions   ProfilePermission[] // Cada perfil pode ter várias permissões.
+  createdAt     DateTime            @default(now()) // Data de criação do tipo de perfil.
+  updatedAt     DateTime            @updatedAt // Data de atualização do tipo de perfil.
+
+  // Mapeamento para o nome da tabela no banco de dados.
+  @@map("profile_type")
+}
+
+// Modelo de perfil do usuário, que representa a associação entre usuários e tipos de perfil.
+model UserProfile {
+  id       Int @id @default(autoincrement()) // ID do perfil do usuário, chave primária.
+  perfilId Int @map("id_perfil") // ID do perfil do usuário.
+  userId   Int @map("id_utilizador") // ID do usuário.
+
+  // Relação com o tipo de perfil.
+  type ProfileType @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  // Relação com o usuário.
+  user      User_Admin? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now()) // Data de criação do perfil do usuário.
+  updatedAt DateTime    @updatedAt // Data de atualização do perfil do usuário.
+
+  // Mapeamento para o nome da tabela no banco de dados.
+  @@map("user_profile")
+}
+
+// Modelo de permissões de perfil, que representa a associação entre tipos de perfil e permissões.
+model ProfilePermission {
+  id           Int @id @default(autoincrement()) // ID da associação, chave primária.
+  perfilId     Int @map("id_perfil") // ID do tipo de perfil.
+  permissoesId Int @map("id_permissoes") // ID da permissão.
+
+  // Relação com as permissões.
+  permissoes Permissions @relation(fields: [permissoesId], references: [id], onDelete: Cascade)
+
+  // Relação com os tipos de perfil.
+  perfis    ProfileType @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now()) // Data de criação da associação.
+  updatedAt DateTime    @updatedAt // Data de atualização da associação.
+
+  // Mapeamento para o nome da tabela no banco de dados.
+  @@map("profile_permissions")
+}
+
+model User {
+  id                          Int                          @id @default(autoincrement()) // ID do usuário, chave primária.
+  email                       String                       @unique // Email do usuário, único.
+  password                    String // Senha do usuário.
+  name                        String // Nome do usuário.
+  telefone                    String                       @unique // Nº telefone do usuário, único.
+  nacionality                 String?
+  genero                      genero                       @default(null)
+  photo                       String?
+  online                      Boolean?                     @default(false)
+  companyName                 String? // Nome da empresa (opcional, para empresários).
+  companyLocation             String? // Local da empresa (opcional, para empresários).
+  companyPhotos               String[] // Fotos do local (opcional, para empresários).
+  companyNIF                  String? // NIF válido (opcional, para empresários).
+  job                         String?
+  status                      Status                       @default(confirmar) // Indica se o usuário está ativo.
+  alertaCount                 Int                          @default(0) // Contagem de alertas
+  Reactions                   Reaction[] // Relação com os likes.
+  posts                       Post[] // Relação com os posts.
+  comments                    Comment[]
+  BusinessArea                BusinessAreaUser[]
+  Block_User_app              Bloqueio_user_app[]
+  type                        Type                         @default(Singular)
+  connectionsSent             Connection[]                 @relation("ConnectionsSent")
+  connectionsReceived         Connection[]                 @relation("ConnectionsReceived")
+  notification                Notification[]
+  messages                    Message[]                    @relation("UserMessages")
+  conversations               Conversation[]               @relation("UserConversations")
+  createdAt                   DateTime                     @default(now()) // Data de criação do usuário.
+  updatedAt                   DateTime                     @updatedAt // Data de atualização do usuário.
+  // Campos para a galeria
+  photos                      String[]
+  videos                      String[]
+  followers                   Follower[] // Relation to Follower
+  // Relação com as conversas onde o usuário é administrador do grupo
+  groupConversations          Conversation[]               @relation("GroupAdmin")
+  // Relação com as conversas onde o usuário é administrador secundário
+  secondaryAdminConversations Conversation[]               @relation("SecondaryAdmins")
+  TouristSpot                 TouristSpot[]
+  UserRespostaAnaliseMercado  UserRespostaAnaliseMercado[]
+  Artigo                      Artigo[]
+  // Relacionamento com Denuncia
+  denunciasFeitas             Denuncia[]                   @relation("UserDenunciante")
+  denunciasRecebidas          Denuncia[]                   @relation("UserDenunciado")
+  warningsCount               Int?                         @default(0)
+  CommentReaction CommentReaction[]
+
+  // Mapeamento para o nome da tabela no banco de dados.
+  @@map("users")
+}
+
+// Define o modelo Conversation para armazenar informações sobre conversas
+model Conversation {
+  id           Int      @id @default(autoincrement())
+  photo        String?
+  name         String? // Nome do grupo, se for um chat em grupo
+  isGroup      Boolean? @default(false) // Indica se é um grupo
+  groupAdmin   User?    @relation("GroupAdmin", fields: [groupAdminId], references: [id])
+  groupAdminId Int?
+
+  // Admins secundários do grupo (muitos-para-muitos)
+  secondaryAdmins   User[]    @relation("SecondaryAdmins")
+  users             User[]    @relation("UserConversations")
+  messages          Message[]
+  isBlocked         Boolean?  @default(false) // Novo campo para bloquear conversa
+  onlyAdminsCanSend Boolean?  @default(false) // Novo campo para permitir envio somente por administradores
+  createdAt         DateTime? @default(now())
+  updatedAt         DateTime? @updatedAt
+}
+
+// Define o modelo Message para armazenar mensagens enviadas em conversas
+model Message {
+  id             Int          @id @default(autoincrement())
+  content        String
+  read           Boolean?     @default(false)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId Int
+  sender         User         @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  deleted        Boolean?     @default(false)
+  senderId       Int
+  viewedAt       DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Follower {
+  id                Int          @id @default(autoincrement())
+  userId            Int // ID of the user following the province/location
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provinceId        Int? // Optional: ID of the province being followed
+  province          Province?    @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+  touristLocationId Int? // Optional: ID of the tourist location being followed
+  touristLocation   TouristSpot? @relation(fields: [touristLocationId], references: [id], onDelete: Cascade)
+  createdAt         DateTime     @default(now())
+
+  @@unique([userId, provinceId])
+  @@unique([userId, touristLocationId])
+}
+
+enum genero {
+  masculino
+  feminino
+  outros
+  null
+}
+
+enum Status {
+  confirmar
+  ativo
+  inativo
+  bloqueado // Novo estado para indicar que o usuário está bloqueado devido a denúncias
+  suspenso // Novo estado para indicar que o usuário está suspenso temporariamente
+}
+
+model Bloqueio_user_app {
+  id           Int             @id @default(autoincrement())
+  UserId       Int
+  user         User            @relation(fields: [UserId], references: [id], onDelete: Cascade)
+  permissionId Int
+  Permission   Permissions_app @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  blockedUntil DateTime?
+  //npx  status       Boolean         @default(true)
+}
+
+model Permissions_app {
+  id          Int     @id @default(autoincrement()) // ID da permissão, chave primária.
+  name        String  @unique // Nome da permissão, único.
+  description String? // Descrição da permissão (opcional).
+  is_singular Boolean @default(true)
+  is_empresa  Boolean @default(true)
+  status      Boolean @default(true)
+
+  Block_Permission_app Bloqueio_user_app[]
+
+  // Mapeamento para o nome da tabela no banco de dados.
+  @@map("permissions_app")
+}
+
+enum Type {
+  Singular
+  Empresa
+}
+
+// Modelo de post, que representa os posts no sistema.
+model Post {
+  id                    Int            @id @default(autoincrement())
+  descricao             String?
+  authorId              Int
+  author                User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  photos                String[]
+  videos                String[]
+  Reactions             Reaction[]
+  comments              Comment[]      @relation("PostComments")
+  provinceId            Int?
+  province              Province?      @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  sharedFrom            Int? // Referência ao post original compartilhado
+  originalPost          Post?          @relation("SharedPosts", fields: [sharedFrom], references: [id], onDelete: SetNull)
+  sharedPosts           Post[]         @relation("SharedPosts")
+  shareCount            Int            @default(0) // Contador de compartilhamentos
+  isOriginalPostDeleted Boolean?       @default(false) // Indica se o post original foi deletado
+  denuncias             Denuncia[]     @relation("DenunciaPost")
+  Notification          Notification[]
+  denunciasCount        Int            @default(0)
+
+  // Novos campos
+  analiseMercado   AnaliseMercado? @relation(fields: [analiseMercadoId], references: [id], onDelete: Cascade)
+  analiseMercadoId Int?
+  anuncio          Anuncio?        @relation(fields: [anuncioId], references: [id], onDelete: Cascade)
+  anuncioId        Int?
+  commentsBlocked  Boolean?        @default(false) // Indica se os comentários estão bloqueados
+  postType         PostType        @default(REGULAR) // Tipo de post (anúncio, sondagem, etc.)
+}
+
+enum PostType {
+  REGULAR
+  ANUNCIO
+  SONDAGEM
+}
+
+model Comment {
+  id        Int       @id @default(autoincrement()) // ID do comentário, chave primária.
+  content   String // Conteúdo do comentário.
+  postId    Int // ID do post ao qual o comentário está associado.
+  post      Post      @relation("PostComments", fields: [postId], references: [id], onDelete: Cascade) // Relação com o post.
+  authorId  Int // ID do autor do comentário.
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade) // Relação com o autor do comentário.
+  parentId  Int? // ID do comentário ao qual este é uma resposta.
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade) // Relação com o comentário pai.
+  replies   Comment[] @relation("CommentReplies") // Relação com as respostas.
+  createdAt DateTime  @default(now()) // Data de criação do comentário.
+  updatedAt DateTime  @updatedAt
+ reactions    CommentReaction[] // Relação com as reações.
+  Notification Notification[]
+}
+
+// Modelo de Reacções, que representa as curtidas nos posts.
+model Reaction {
+  id           Int          @id @default(autoincrement()) // ID da curtida, chave primária.
+  userId       Int // ID do usuário que curtiu.
+  postId       Int // ID do post curtido.
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade) // Relação com o usuário que curtiu.
+  post         Post         @relation(fields: [postId], references: [id], onDelete: Cascade) // Relação com o post curtido.
+  reactionType ReactionType
+  createdAt    DateTime     @default(now()) // Data de criação da curtida.
+  updatedAt    DateTime     @updatedAt // Data de atualização da curtida.
+}
+model CommentReaction {
+  id           Int          @id @default(autoincrement()) // ID da reação, chave primária.
+  userId       Int          // ID do usuário que reagiu.
+  commentId    Int          // ID do comentário que recebeu a reação.
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade) // Relação com o usuário que reagiu.
+  comment      Comment      @relation(fields: [commentId], references: [id], onDelete: Cascade) // Relação com o comentário que recebeu a reação.
+  reactionType ReactionType // Tipo de reação.
+  createdAt    DateTime     @default(now()) // Data de criação da reação.
+  updatedAt    DateTime     @updatedAt // Data de atualização da reação.
+}
+
+enum ReactionType {
+  ESTRELA
+  MAPA
+  CAMERA
+  GLOBO
+  PAISAGEM
+}
+
+model Connection {
+  id              Int              @id @default(autoincrement())
+  user            User             @relation("ConnectionsSent", fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  connectedUser   User             @relation("ConnectionsReceived", fields: [connectedUserId], references: [id], onDelete: Cascade)
+  connectedUserId Int
+  status          ConnectionStatus @default(PENDING)
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+  IGNORED // Novo status
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  email     String
+  token     String
+  expiresAt DateTime
+}
+
+// ... outros modelos existentes
+model Emergencia {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
+  telefone    String
+  description String?
+  type        typeEmergency? @default(Policia)
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+enum typeEmergency {
+  Policia
+  Hospital
+  Faa
+  Bombeiros
+}
+
+// Modelo para a tabela Province
+model Province {
+  id              Int               @id @default(autoincrement())
+  name            String
+  capital         String?
+  populacao       String?
+  area            String?
+  about           String
+  photo           String?
+  photos          String[]
+  videos          String[]
+  latitude        Float
+  longitude       Float
+  address         String
+  posts           Post[] // Relação com os posts.
+  touristSpots    TouristSpot[] // Relação um-para-muitos com TouristSpot
+  provinceHabitat ProvinceHabitat[]
+  followers       Follower[] // Relation to Follower
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+// Modelo para a tabela TouristSpot
+model TouristSpot {
+  id                Int                 @id @default(autoincrement())
+  name              String
+  province          Province            @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+  provinceId        Int
+  latitude          Float
+  longitude         Float
+  address           String?
+  about             String?
+  localType         LocalType           @default(AMBIENTE_CONSTITUIDO)
+  Photo_TouristSpot Photo_TouristSpot[]
+  Video_TouristSpot Video_TouristSpot[]
+  followers         Follower[] // Relation to Follower
+  companyUser       User?               @relation(fields: [companyUserId], references: [id], onDelete: Cascade)
+  companyUserId     Int?
+  denunciasCount    Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  denuncias Denuncia[] @relation("DenunciaLocalTuristico")
+}
+
+model Photo_TouristSpot {
+  id            Int         @id @default(autoincrement())
+  photo         String
+  touristSpot   TouristSpot @relation(fields: [TouristSpotId], references: [id], onDelete: Cascade)
+  TouristSpotId Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Video_TouristSpot {
+  id            Int         @id @default(autoincrement())
+  Video         String
+  touristSpot   TouristSpot @relation(fields: [TouristSpotId], references: [id], onDelete: Cascade)
+  TouristSpotId Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model BusinessArea {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique
+  description      String?
+  businessAreaUser BusinessAreaUser[]
+  createdAt        DateTime?          @default(now())
+  updatedAt        DateTime?          @updatedAt
+}
+
+model BusinessAreaUser {
+  id             Int          @id @default(autoincrement())
+  businessAreaId Int
+  business       BusinessArea @relation(fields: [businessAreaId], references: [id], onDelete: Cascade)
+  userId         Int // Referência ao usuário que cadastrou a área de negócio
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+enum LocalType {
+  ZONA_TURISTICA
+  AMBIENTE_CONSTITUIDO
+  ZONA_TURISTA_CONSTITUIDA
+}
+
+model ProvinceHabitat {
+  id          Int      @id @default(autoincrement())
+  name        String
+  provinceId  Int
+  province    Province @relation(fields: [provinceId], references: [id], onDelete: Cascade)
+  description String?
+  type        type     @default(CULTURA)
+  photos      String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum type {
+  CULTURA
+  ALIMENTACAO
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement()) // ID da notificação, chave primária.
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade) // Relação com o usuário.
+  userId    Int? // ID do usuário que recebe a notificação.
+  type      String // Tipo de notificação (ex: "mention", "like", "comment").
+  message   String // Mensagem da notificação.
+  read      Boolean  @default(false) // Status de leitura da notificação.
+  postId    Int? // ID do post relacionado à notificação.
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  commentId Int? // ID do comentário relacionado à notificação.
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  adminType Boolean  @default(false) // Indica se a notificação é para todos os admins.
+  createdAt DateTime @default(now()) // Data de criação da notificação.
+  updatedAt DateTime @updatedAt // Data de atualização da notificação.
+
+  // Mapeamento para o nome da tabela no banco de dados.
+  @@map("notifications")
+}
+
+model Artigo {
+  id             Int              @id @default(autoincrement())
+  id_user_app    Int
+  User           User             @relation(fields: [id_user_app], references: [id], onDelete: Cascade)
+  nome_artigo    String
+  descricao      String?
+  imagem         String? // Opcional
+  preco          Float
+  familia        Familia
+  estado         Estado           @default(ACTIVO)
+  Anuncio        Anuncio[]
+  AnaliseMercado AnaliseMercado[]
+
+  @@map("artigo")
+}
+
+model Anuncio {
+  id                   Int         @id @default(autoincrement())
+  id_artigo            Int
+  percentagem_desconto Float? // Opcional
+  tipo_anuncio         TipoAnuncio
+  descricao            String? // Opcional
+
+  Artigo Artigo @relation(fields: [id_artigo], references: [id], onDelete: Cascade)
+  Post   Post[]
+
+  @@map("anuncio")
+}
+
+
+model AnaliseMercado {
+  id            Int          @id @default(autoincrement())
+  id_artigo     Int?
+  questao       String
+  tipo_resposta TipoResposta
+  Artigo        Artigo?       @relation(fields: [id_artigo], references: [id], onDelete: Cascade)
+
+  RespostaAnaliseMercado RespostaAnaliseMercado[]
+  Post                   Post[]
+
+  @@map("analise_mercado")
+}
+
+model RespostaAnaliseMercado {
+  id                         Int                          @id @default(autoincrement())
+  id_analise_mercado         Int
+  AnaliseMercado             AnaliseMercado               @relation(fields: [id_analise_mercado], references: [id], onDelete: Cascade)
+  opcao                      String
+  UserRespostaAnaliseMercado UserRespostaAnaliseMercado[]
+
+  @@map("resposta_analise_mercado")
+}
+
+model UserRespostaAnaliseMercado {
+  id                          Int                     @id @default(autoincrement())
+  id_resposta_analise_mercado Int? // Opcional
+  id_user                     Int
+  User                        User                    @relation(fields: [id_user], references: [id], onDelete: Cascade)
+  outro                       String? // Opcional
+  RespostaAnaliseMercado      RespostaAnaliseMercado? @relation(fields: [id_resposta_analise_mercado], references: [id], onDelete: Cascade)
+
+  @@map("user_resposta_analise_mercado")
+}
+
+// Enums
+
+enum Familia {
+  PRODUTO
+  SERVICO
+}
+
+enum Estado {
+  ACTIVO
+  INATIVO
+}
+
+enum TipoAnuncio {
+  NORMAL
+  PROMOCAO
+}
+
+enum TipoResposta {
+  RADIO
+  CHECK
+}
+
+model Denuncia {
+  id                Int            @id @default(autoincrement())
+  denuncianteId     Int // ID do usuário que está fazendo a denúncia
+  denunciadoUserId  Int? // ID do usuário denunciado, opcional
+  denunciadoLocalId Int? // ID do local turístico denunciado, opcional
+  denunciadoPostId  Int? // ID da publicação denunciada, opcional
+  tipoDenuncia      TipoDenuncia // Tipo da denúncia (ex: abuso sexual, conteúdo pornográfico)
+  descricao         String? // Campo opcional para informações adicionais
+  status            StatusDenuncia @default(PENDENTE) // Status da denúncia
+  createdAt         DateTime       @default(now())
+  denunciante       User           @relation("UserDenunciante", fields: [denuncianteId], references: [id], onDelete: Cascade)
+  denunciadoUser    User?          @relation("UserDenunciado", fields: [denunciadoUserId], references: [id], onDelete: Cascade)
+  denunciadoPost    Post?          @relation("DenunciaPost", fields: [denunciadoPostId], references: [id], onDelete: Cascade)
+  denunciadoLocal   TouristSpot?   @relation("DenunciaLocalTuristico", fields: [denunciadoLocalId], references: [id], onDelete: Cascade)
+
+  @@map("denuncia")
+}
+
+enum StatusDenuncia {
+  PENDENTE
+  ACEITA
+  BLOQUEIO_PERMISSOES
+  DESATIVACAO
+  AVISO
+}
+
+enum TipoDenuncia {
+  ABUSO_SEXUAL
+  CONTEUDO_PORNOGRAFICO
+  DISCURSO_DE_ODIO
+  FRAUDE
+  VIOLACAO_DE_PRIVACIDADE
+  SPAM
+  OUTRO
+}
